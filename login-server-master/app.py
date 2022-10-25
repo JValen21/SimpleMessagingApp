@@ -180,12 +180,19 @@ def send():
         message = request.args.get('message') or request.args.get('message')
         if not sender or not message:
             return f'ERROR: missing sender or message'
-        stmt = f"INSERT INTO messages (sender, message) values ('{sender}', '{message}');"
-        result = f"Query: {pygmentize(stmt)}\n"
-        conn.execute(stmt)
-        return f'{result}ok'
+        #Fixing SQL injection vulnerability:
+        conn.execute('INSERT INTO messages (sender, message) VALUES (?, ?)', (sender, message))
+        return f'ok'
     except Error as e:
-        return f'{result}ERROR: {e}'
+        return f'ERROR: {e}'
+    
+        #Previous code:
+        #stmt = f"INSERT INTO messages (sender, message) values ('{sender}', '{message}');"
+        #result = f"Query: {pygmentize(stmt)}\n"
+        #conn.execute(stmt)
+        #return f'{result}ok'
+    #except Error as e:
+     #   return f'{result}ERROR: {e}'
 
 @app.get('/announcements')
 def announcements():
