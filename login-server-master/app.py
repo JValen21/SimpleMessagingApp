@@ -1,5 +1,6 @@
 from http import HTTPStatus
-from flask import Flask, abort, request, send_from_directory, make_response, render_template
+from flask import Flask, abort, request, send_from_directory, make_response, render_template, session
+from flask_session import Session
 from werkzeug.datastructures import WWWAuthenticate
 import flask
 from login_form import LoginForm
@@ -15,11 +16,14 @@ from pygments.filters import NameHighlightFilter, KeywordCaseFilter
 from pygments import token;
 from threading import local
 from markupsafe import escape
+from database import * 
 
 tls = local()
 inject = "'; insert into messages (sender,message) values ('foo', 'bar');select '"
 cssData = HtmlFormatter(nowrap=True).get_style_defs('.highlight')
 conn = None
+
+conn = initDatabase() #Initialize the databse. 
 
 # Set up app
 app = Flask(__name__)
@@ -35,7 +39,7 @@ login_manager.login_view = "login"
 
 
 users = {'alice' : {'password' : 'password123', 'token' : 'tiktok'}, #Dårlig
-         'bob' : {'password' : 'bananas'}
+         'Bob' : {'password' : 'bananas'}
          }
 
 # Class to store user info
@@ -43,15 +47,13 @@ users = {'alice' : {'password' : 'password123', 'token' : 'tiktok'}, #Dårlig
 # methods (`is_authenticated`, `is_active`, `is_anonymous` and `get_id()`)
 class User(flask_login.UserMixin):
     pass
-
+    
 
 # This method is called whenever the login manager needs to get
 # the User object for a given user id
 @login_manager.user_loader
 def user_loader(user_id):
-    if user_id not in users:
-        return
-
+    
     # For a real app, we would load the User from a database or something
     user = User()
     user.id = user_id
@@ -120,6 +122,14 @@ def favicon_ico():
 def favicon_png():
     return send_from_directory(app.root_path, 'favicon.png', mimetype='image/png')
 
+@app.route('/index.js')
+def index_js():
+    return send_from_directory(app.root_path, 'index.js', mimetype='text/javascript')
+
+@app.route('/index.css')
+def index_css():
+    return send_from_directory(app.root_path, 'index.css', mimetype='text/css')
+
 
 @app.route('/')
 @app.route('/index.html')
@@ -127,6 +137,18 @@ def favicon_png():
 def index_html():
     return send_from_directory(app.root_path,
                         'index.html', mimetype='text/html')
+
+#Function to check that the username and password entered is correct.
+def check_password(username, password):
+    try:
+        dataBase_Password = conn.execute('SELECT password FROM users WHERE username=?', (username,)).fetchall()[0][0]
+        salt = conn.execute('SELECT salt FROM users WHERE username=?', (username,)).fetchall()[0][0]
+        password = checkHashedPassword(password, salt)
+        return (password == dataBase_Password)
+    except Error as e:
+        return f'ERROR: {e}'
+        
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -138,8 +160,7 @@ def login():
         # TODO: we must check the username and password
         username = form.username.data
         password = form.password.data
-        u = users.get(username)
-        if u: # and check_password(u.password, password):
+        if check_password(username, password): # and check_password(u.password, password):
             user = user_loader(username)
             
             # automatically sets logged in session cookie
@@ -163,7 +184,8 @@ def search():
     stmt = f"SELECT * FROM messages WHERE message GLOB '{query}'"
     result = f"Query: {pygmentize(stmt)}\n"
     try:
-        c = conn.execute(stmt)
+        #c = conn.execute(stmt)
+        c = conn.execute('SELECT * FROM messages WHERE message GLOB (?)', (query)) #Prepared statement to avoid sql injection. 
         rows = c.fetchall()
         result = result + 'Result:\n'
         for row in rows:
@@ -171,7 +193,7 @@ def search():
         c.close()
         return result
     except Error as e:
-        return (f'{result}ERROR: {e}', 500)
+        return f'ERROR: {e}'
 
 @app.route('/send', methods=['POST','GET'])
 def send():
@@ -220,17 +242,6 @@ def highlightStyle():
     resp.content_type = 'text/css'
     return resp
 
-try:
-    conn = apsw.Connection('./tiny.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS messages (
-        id integer PRIMARY KEY, 
-        sender TEXT NOT NULL,
-        message TEXT NOT NULL);''')
-    c.execute('''CREATE TABLE IF NOT EXISTS announcements (
-        id integer PRIMARY KEY, 
-        author TEXT NOT NULL,
-        text TEXT NOT NULL);''')
-except Error as e:
-    print(e)
-    sys.exit(1)
+
+
+
