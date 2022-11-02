@@ -1,13 +1,19 @@
+from curses import flash
+import datetime
 from http import HTTPStatus
-from flask import Flask, abort, request, send_from_directory, make_response, render_template, session
-from flask_session import Session
+import re
+import unicodedata
+from flask import Flask, abort, request, send_from_directory, make_response, render_template, session, url_for
+from urlparse import urlparse, urljoin
 from werkzeug.datastructures import WWWAuthenticate
 import flask
 from login_form import LoginForm
+from createUser_form import CreateUserForm
 from json import dumps, loads
 from base64 import b64decode
 import sys
 import apsw
+import jwt
 from apsw import Error
 from pygments import highlight
 from pygments.lexers import SqlLexer
@@ -17,6 +23,9 @@ from pygments import token;
 from threading import local
 from markupsafe import escape
 from database import * 
+from flask_wtf.csrf import CSRFProtect
+
+
 
 tls = local()
 inject = "'; insert into messages (sender,message) values ('foo', 'bar');select '"
@@ -27,15 +36,29 @@ conn = initDatabase() #Initialize the databse.
 
 # Set up app
 app = Flask(__name__)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True, #The HttpOnly flag set to True prevents any client-side usage of the session cookie
+    REMEMBER_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Strict", #We also prevented cookies from being sent from any external requests by setting SESSION_COOKIE_SAMESITE to Strict
+
+)
+
+
 # The secret key enables storing encrypted session data in a cookie (make a secure random key for this!)
-app.secret_key = 'mY s3kritz'
+app.secret_key = secrets.token_hex(16)
+
 
 # Add a login manager to the app
 import flask_login
-from flask_login import login_required, login_user
+from flask_login import login_required, login_user, logout_user, current_user
 login_manager = flask_login.LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
+login_manager.session_protection = "strong"
+
+
+csrf = CSRFProtect() #CSRF attack protection.
+csrf.init_app(app)
 
 
 users = {'alice' : {'password' : 'password123', 'token' : 'tiktok'}, #Dårlig
@@ -59,6 +82,12 @@ def user_loader(user_id):
     user.id = user_id
     return user
 
+#A function that ensures that a redirect target will lead to the same server:
+def is_safe_url(target):
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ('http', 'https') and \
+           ref_url.netloc == test_url.netloc
 
 # This method is called to get a User object based on a request,
 # for example, if using an api key or authentication token rather
@@ -130,64 +159,168 @@ def index_js():
 def index_css():
     return send_from_directory(app.root_path, 'index.css', mimetype='text/css')
 
+################################################################################################
+################################################################################################
 
 @app.route('/')
 @app.route('/index.html')
 @login_required
 def index_html():
-    return send_from_directory(app.root_path,
-                        'index.html', mimetype='text/html')
+    return render_template("index.html", minetype='text/html')
+    #return send_from_directory(app.root_path,
+                        #'index.html', mimetype='text/html')
 
-#Function to check that the username and password entered is correct.
+
+#Add CSP header:
+@app.after_request
+def add_security_headers(resp):
+    resp.headers['Content-Security-Policy']='default-src \'self\''
+    return resp
+
+################################# Functions for the createUser process ###############################
+
+#Function for generating hashed passwords with salt. 
+#Returns a tuple with the hashed password and the salt.
+def hashPassword(password):
+    salt = secrets.token_hex(16) #Add salt
+    dataBase_password = password + salt
+    # Hashing the password
+    hashed = hashlib.sha512(dataBase_password.encode())
+    return (hashed.hexdigest(), salt)
+   
+
+#A function that checks if a username already exists in the database.
+#Returns true if the username existst in the database.
+def usernameExists(username): 
+    isInDatabase = False
+    c = conn.execute('SELECT username FROM users').fetchall()
+    if (username,) in c:
+        isInDatabase = True
+    return isInDatabase   
+
+#Check if we write correct password twice and that its at least 12 characters long.
+#Returns true if its something wrong with the password.
+def wrongPassword(psw, pswRepeated):
+    #Password must be typed correct twice and be longer than 12 characters. Return true if not. 
+    return(psw != pswRepeated or len(psw) < 12)
+    
+
+#Creating a new user in the system:
+#Redirects to the login page if you successfully create a new user, if not, the page reloads.     
+@app.route('/createUser', methods=["GET", "POST"])
+def createUser():
+    form = CreateUserForm()
+    if form.is_submitted():
+        print(f'Received form: {"invalid" if not form.validate() else "valid"} {form.form_errors} {form.errors}')
+        print(request.form)
+    if form.validate_on_submit():
+        #username = form.username.data
+        #psw = form.password.data
+        #pswRepeated = form.repeatPassword.data
+        username = request.form["username"]
+        psw = request.form["psw"]
+        pswRepeated = request.form["psw-repeat"]
+        try: 
+            pswTuple = hashPassword(psw) 
+            pswHashed = pswTuple[0]
+            salt = pswTuple[1]
+            if (usernameExists(username) or wrongPassword(psw, pswRepeated)):
+                return flask.redirect(flask.url_for('createUser', form = form))
+            else:
+                conn.execute('INSERT INTO users (username, password, salt) VALUES (?, ?, ?)', (username, pswHashed, salt))
+            
+                next = flask.request.args.get('next')
+                
+                if not is_safe_url(next):
+                    return flask.abort(400)
+                return flask.redirect(next or flask.url_for('login'))
+            
+        except Error as e:
+            return f'ERROR: {e}'  
+    return render_template("createUser.html", form = form)
+
+
+################################## Functions for the login process #################################
+
+#Returns hashed password with salt so that we can check if provided password is the same as we have in the database.
+def checkHashedPassword(password, salt):
+    dataBase_password = password + salt
+    return hashlib.sha512(dataBase_password.encode()).hexdigest()
+   
+
+#Function to check that the username and password entered is correct in the login process:
 def check_password(username, password):
-    try:
-        dataBase_Password = conn.execute('SELECT password FROM users WHERE username=?', (username,)).fetchall()[0][0]
-        salt = conn.execute('SELECT salt FROM users WHERE username=?', (username,)).fetchall()[0][0]
-        password = checkHashedPassword(password, salt)
-        return (password == dataBase_Password)
-    except Error as e:
-        return f'ERROR: {e}'
-        
+    dataBase_Password = conn.execute('SELECT password FROM users WHERE username=?', (username,)).fetchall()[0][0]
+    salt = conn.execute('SELECT salt FROM users WHERE username=?', (username,)).fetchall()[0][0]
+    password = checkHashedPassword(password, salt)
+    return (password == dataBase_Password)
 
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
-    if form.is_submitted():
-        print(f'Received form: {"invalid" if not form.validate() else "valid"} {form.form_errors} {form.errors}')
-        print(request.form)
-    if form.validate_on_submit():
-        # TODO: we must check the username and password
-        username = form.username.data
-        password = form.password.data
-        if check_password(username, password): # and check_password(u.password, password):
-            user = user_loader(username)
-            
-            # automatically sets logged in session cookie
-            login_user(user)
-
-            flask.flash('Logged in successfully.')
-
-            next = flask.request.args.get('next')
     
-            # is_safe_url should check if the url is safe for redirects.
-            # See http://flask.pocoo.org/snippets/62/ for an example.
-            if False and not is_safe_url(next):
-                return flask.abort(400)
+    if request.method == 'GET':
+        return render_template('./login.html', form=form)
+        
+    if request.method == 'POST': 
+        if form.is_submitted():
+            print(f'Received form: {"invalid" if not form.validate() else "valid"} {form.form_errors} {form.errors}')
+            print(request.form)
+        if form.validate_on_submit():
+            username = form.username.data
+            password = form.password.data
+            session['username'] = username
+            try: 
+                isValid = check_password(username, password) # and check_password(u.password, password)
+            except IndexError as e:
+                return render_template('./login.html', form=form)  
+            if(isValid):
+                user = user_loader(username)
+                # automatically sets logged in session cookie
+                session['logged_in'] = True
+                login_user(user)
+        
+                flask.flash('Logged in successfully.')
+                next = flask.request.args.get('next')
+                # is_safe_url should check if the url is safe for redirects.
+                # See http://flask.pocoo.org/snippets/62/ for an example.
+                if not is_safe_url(next):
+                    return flask.abort(400)
 
-            return flask.redirect(next or flask.url_for('index'))
+                return flask.redirect(next or flask.url_for('index_html'))              
     return render_template('./login.html', form=form)
 
-@app.get('/search')
-def search():
-    query = request.args.get('q') or request.form.get('q') or '*'
-    stmt = f"SELECT * FROM messages WHERE message GLOB '{query}'"
+#Logout funciton:
+@app.route('/logout')
+@login_required
+def logout():
+    print("Gets here")
+    logout_user()
+    session.pop('username', None)
+                
+    return flask.redirect(flask.url_for('login')) 
+
+#Make user log out after 20 minutes of inactivity:
+@app.before_request
+def before_request():
+    flask.session.permanent = True
+    app.permanent_session_lifetime = datetime.timedelta(minutes=1)
+    flask.session.modified = True
+
+################################# Messaging system #################################
+
+@app.get('/showInbox')
+def showInbox():
+    #query = request.args.get('q') or request.form.get('q') or '*'
+    receiver = request.args.get('sender') or request.form.get('sender')
+    stmt = f"SELECT * FROM messages WHERE receiver = '{receiver}'"
     result = f"Query: {pygmentize(stmt)}\n"
     try:
         #c = conn.execute(stmt)
-        c = conn.execute('SELECT * FROM messages WHERE message GLOB (?)', (query)) #Prepared statement to avoid sql injection. 
+        c = conn.execute('SELECT * FROM messages WHERE receiver=?', (receiver,)) #Prepared statement to avoid sql injection. 
         rows = c.fetchall()
-        result = result + 'Result:\n'
+        result = result + 'You have '+ str(len(rows)) + ' messages:\n'
         for row in rows:
             result = f'{result}    {dumps(row)}\n'
         c.close()
@@ -200,10 +333,11 @@ def send():
     try:
         sender = request.args.get('sender') or request.form.get('sender')
         message = request.args.get('message') or request.args.get('message')
-        if not sender or not message:
-            return f'ERROR: missing sender or message'
+        receiver = request.args.get('receiver') or request.args.get('receiver')
+        if not sender or not message or not receiver:
+            return f'ERROR: missing sender, message or receiver'
         #Fixing SQL injection vulnerability:
-        conn.execute('INSERT INTO messages (sender, message) VALUES (?, ?)', (sender, message))
+        conn.execute('INSERT INTO messages (sender, message, receiver) VALUES (?, ?, ?)', (sender, message, receiver))
         return f'ok'
     except Error as e:
         return f'ERROR: {e}'

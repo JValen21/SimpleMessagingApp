@@ -4,16 +4,14 @@ from apsw import Error
 import hashlib
 import secrets
 
-  
-def initDatabase():
+def initMessageDatabase():
     try:     
-        conn = apsw.Connection('./tiny.db')
+        conn = apsw.Connection('./messages.db')
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS messages (
             id integer PRIMARY KEY, 
             sender TEXT NOT NULL,
-            message TEXT NOT NULL,
-            receiver TEXT NOT NULL);''')
+            message TEXT NOT NULL);''')
         c.execute('''CREATE TABLE IF NOT EXISTS announcements (
             id integer PRIMARY KEY, 
             author TEXT NOT NULL,
@@ -33,5 +31,3 @@ def initDatabase():
     except Error as e:
         print(e)
         sys.exit(1)
-        
-        

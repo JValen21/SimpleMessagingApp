@@ -79,11 +79,13 @@
 </head>
 
 <body>
+    
+<!--<p align="center"><a href=createUser ><button class=grey style="height:75px;width:150px">Create new account</button></a></p>-->
     <div id="page">
     <form action="" method=post>
   <dl>
       {{ form.csrf_token }}
-      
+
     <dt>Username:
     <dd>{{ form.username }}
     <dt>Password:
@@ -93,5 +95,7 @@
     <input type=submit value=Login>
     <input type=hidden value="{{ next or '' }}" name=next>
 </form>
+<p> Dont have an account? </p> 
+<a href=createUser >Click here to create an account</a>
     </div>
 </body>
