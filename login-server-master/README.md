@@ -106,5 +106,52 @@ By setting SESSION_COOCKIE_SAMESITE to the value "lax" I prevent the browser fro
 
 By setting SESSION_COOCKIE_HTTPONLY to True we prevent any client-side usage of the session cookie.
 
+## Answers to questions
+
+## Threat model - who might attack the application? What can an attacker do? What damage could be done (in terms of confidentiality, integrity, availability)? Are there limits to what an attacker can do? Are there limits to what we can sensibly protect against?
 
 
+### Who might attack the application?
+Anyone who have some basic knowledge about cybersecurity and want to might attack the application. 
+
+### What can an attacker do and what damage could be done?
+The attacker can exploit the sql injection, XSS and CSRF vulnerabilities. I feel like I have answered a lot of these questions above, but here is something the attacker can do:
+- The search and send functionality is open to sql injection attacks. If the attacker succeeds, he could get access to the whole database. The attacker can change data and delete data. SQL injection can breach all three elements in the CIA triad. Confidentiality is breached if hackers get hold of sensitive user information from the database. If the hacker change data in the database, integrity is breached. The hacker can also delete data, which breaches with availability.
+- XSS-attacks: The attacker can trick the users into clicking on message content that can run malicous scripts. This is a breach in authenticity and accountability, because messages you think are sent from a user might actually be sent from a hacker. 
+- No CSRF protection. When a user sends a message, there is no CSRF token to compare to ensure that the POST request did not come from somewhere else. breaches with authenticity and accountability.
+
+Another security issue is that login doesnt require a password, which lets anyone who knows a valid username access to that user. This is broken authentication.
+
+### Is there limits to what an attacker can do? 
+Well, the databse only stores messages and announcements, so the attacker can only manipulate things surrounding this. 
+
+### Limits to what we can sensibly protect against? 
+Well, yes. We can of course only protect against attacks we already recognize and know about. We always have to keep improving security as we develop our application further. More security issues might arise!
+
+
+### What are the main attack vectors for the application?
+Definitely the search and send functionality in the messaging system as I have mentioned.
+
+### What should we do (or what have you done) to protect against attacks?
+Basicly, the three biggest vulnerabilities I have protected against are SQL injections, XSS and CSRF. 
+
+I have: 
+- hashed passwords with salt.
+- Enabled CSP.
+- Set sameSite attribute on coockies. 
+- Implemented prepared statements for sql queries. 
+- Enabled CSRF protection using flask-WTF extension
+- Set the secret key to secrets.token_hex(16)
+- Implemented is_safe_url() function. 
+- Fixed login functionality to require password. 
+- Stored username, passwords and salt in database instead of plaintext dict.
+- Removed printing of the queries. 
+- Fixed insecure design problem.
+
+For better explanation, look above at techinal details and design considerations.
+
+### What is the access control model?
+It doesnt have any good access control model. The authentication in the boilerplate application is extremely broken. 
+
+### How can you know that you security is good enough? (traceability)
+You can never be completely safe. I feel like good enough security should prevent the most common vulnerabilities, such as SQL injections, XSS and CSRF in our case. Tracibility is a good feature to add in every system because if an attacker succeeds to attack your application, you can quickly trace the problem and prevent similar future attacks. We can obtain tracebility by logging different activity within our application. 
