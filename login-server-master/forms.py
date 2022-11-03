@@ -7,3 +7,8 @@ class LoginForm(FlaskForm):
     password = PasswordField('Password')
     submit = SubmitField('Submit')
 
+class CreateUserForm(FlaskForm):
+    username = StringField('Username')
+    password = PasswordField('Password')
+    repeatPassword = PasswordField('Repeat-Password')
+    submit = SubmitField('Submit')

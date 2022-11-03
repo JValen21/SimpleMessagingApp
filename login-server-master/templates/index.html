@@ -3,7 +3,6 @@
 
 <head>
     <title>INF226</title>
-    <link rel="stylesheet" href="highlight.css" />
 	<link rel="icon" href="favicon.png" type="image/png" />
     <link rel="stylesheet" href="index.css">
 
@@ -17,27 +16,25 @@
             <pre id="output"></pre>
         </main>
         <div id="controls">
-            <label for="search">Search:</label>
             
-            <input type="search" id="search" name="search" enterkeyhint="search" value="*">
-            <button type="button" id="searchBtn">Search!</button>
-            <button type="button" id="allBtn">Show inbox</button>
             <label for="sender">From:</label>
             <input type="text" id="sender" name="sender" value={% if current_user.is_authenticated %}
             {{ current_user.id }}
           {% endif %} readonly>
-            <span></span>
+            <button type="button" id="logOut">Log out</button>
             <span></span>
             <label for="sender">To:</label>
             <input type="text" id="receiver" name="receiver" value="">
-            <button type="button" id="sendBtn">Send </button>
-            <button class="nav-item">
+            <button type="button" id="allBtn">Show inbox</button>
+            <!--<button class="nav-item">
                 <a class="nav-link" href="{{url_for('logout')}}">Logout</a>
-            </button>
+            </button>-->
+            <span></span>
             <!--<button type="button" id="logoutBtn">Logout </button>-->
             <label for="message">Message:</label>
             <textarea id="message" style="grid-row: span 4;">A message...</textarea>
             <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="button" id="sendBtn">Send message</button>
         </div>
         <div id="anchor"></div>
     </div>
