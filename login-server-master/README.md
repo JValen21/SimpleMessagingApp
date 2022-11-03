@@ -24,7 +24,7 @@ Users can pretend to be someone else by sending messages as another user. This s
 
 No authorization. Everyone can see everyones messages.
 
-The app is also vulnerable to CSRF attacks, since there is no CSRF token checks. An end-user could be hacked by clicking on a form on another website, redirecting messages to our server. Also, the send() method in app.py also supports POST and GET requests, meaning a user can be tricked into clicking a link, which will send a message to this server. This is because clicking of links usually are GET requests and not POST requests)
+The app is also vulnerable to CSRF attacks, since there is no CSRF token checks. An end-user could be hacked by clicking on a form on another website, redirecting messages to our server. Also, the send() method in app.py supports POST and GET requests, meaning a user can be tricked into clicking a link, which will send a message to this server. This is because clicking of links usually are GET requests and not POST requests
 
 ## Design considerations
 
@@ -36,7 +36,7 @@ Moved all the javascript code in index.html to a file called index.js and made a
 
 Imported hashLib and made a function that encrypts the passwords hashPassword() (sha512 with salt). 
 
-I decided to use the included SQLite to persist information. I made a new table called users in the database and stored the usernames, hashed passwords and salt in this table, making the app much more secure without password in plaintext dict. 
+I decided to use the included SQLite to persist information. I made a new table called users in the database and stored the usernames, hashed passwords and salt in this table, making the app much more secure without passwords in plaintext dict. 
 
 I made a new function check_password() that is used in the login() function to check the username and password. In this function I have implemented sql queries to get the hashed password and salt from the database. I use the same salt to hash the password from the user trying to log in, to check if it is correct. Now we have to use correct username and password to login. 
 
@@ -62,19 +62,21 @@ Implemented is_safe_url function that ensures that a redirect target will lead t
 
 Implemeted logout functionality.   
 
-I removed the "search" functionality of the boilerplate application, because this did not make very much sense for e message application in my eyes. I don't really use pygmentize, since I don't show the queries, so I removed this too. Same with announcements. 
+I removed the "search" functionality of the boilerplate application, because this did not make very much sense for a message application in my eyes. I don't really use pygmentize, since I don't show the queries, so I removed this too. Same with announcements. 
+
+I also removed the printing of sql queries when you perform messaging requests. 
 
 ## Application features
 ### Creating users
 From the "/createUser" page you can create users. You have to write a username that is unique and a password with more than 12 characters. 
 
 ### Login
-From the "/login" page you can enter username and password in the forms and you will be redirected to the simple messaging application. 
+From the "/login" page you can enter a username and password in the forms and you will be redirected to the simple messaging application. 
 
 ### Simple messaging
 When you log in you will get straight to the messaging application. Here you have 3 features. You can see all messages sent to you by clicking on the "showInbox" button. This will show you your messages along with who has sent it and a timestamp of when the message was sent. 
 
-If you want to send a message. You have to type in the "to" field and write the name of an existing user you want to send to. Then click send message and the message is sent.
+If you want to send a message. You have to type in the "to" field and write the name of an existing user you want to send to. Write your message and then click send message and the message is sent. You will be notfied that the message was sent.
 
 ### Logout
 Click the logout button and you will be logged out and redirected to the "/login" page.
@@ -84,7 +86,7 @@ Click the logout button and you will be logged out and redirected to the "/login
 
 You run the application with the command 'flask run'. This will set up everything you need. Then just go to 'localhost:5000' and you will be redirected to the login page.
 
-When starting the application for the first time, there is only 1 user in the database. You can log in with username Jonatan and password jonatanvalen. You will need to create a user if you want to send messages between two users. After creating a user, you will be redirected to the login page. Remeber to create a password that is minimum 12 characters long. 
+When starting the application for the first time, there is only 1 user in the database. You can log in with username Ole (capital O) and password oleerbest123. You will need to create a user if you want to send messages between two users. After creating a user, you will be redirected to the login page. Remeber to create a password that is minimum 12 characters long. 
 
 When you log in, enter username and password of an existing user into the log in form. 
 
@@ -92,11 +94,11 @@ When you test the messaging system, make sure you write to a user in the 'to' fo
 
 ## Technical details
 
-The app is very simple and I have reused a lot of the logic and code from boilerplate project. 
+The app is very simple and I have reused a lot of the logic and code from the login server project. 
 
-When hashing password, I have used the hashlib library. For handling login I have used flask_login. 
+When hashing password, I have used the hashlib library. For handling login I have used flask_login. For url parsing I have used the urllib.parse library.
 
-I have set the secret key to secrets.token_hex(16). Now every time the flask application is run, everyone's session cookie will be invalid and therefore everyone will be logged out.
+I have set the secret key to secrets.token_hex(16). Now every time the flask application is run, a new random secret key is made and everyone's session cookie will be invalid and therefore everyone will be logged out.
 
 I enabled CSRF protection using flask-WTF extension. When a user now sends a message, the CSRF token is compared to ensure that the POST request did not come from somewhere else. This will happen automatically when using the createUser and login forms, but has to be done manually when sending messages.
 
@@ -107,10 +109,6 @@ By setting SESSION_COOCKIE_SAMESITE to the value "lax" I prevent the browser fro
 By setting SESSION_COOCKIE_HTTPONLY to True we prevent any client-side usage of the session cookie.
 
 ## Answers to questions
-
-## Threat model - who might attack the application? What can an attacker do? What damage could be done (in terms of confidentiality, integrity, availability)? Are there limits to what an attacker can do? Are there limits to what we can sensibly protect against?
-
-
 ### Who might attack the application?
 Anyone who have some basic knowledge about cybersecurity and want to might attack the application. 
 
@@ -126,7 +124,7 @@ Another security issue is that login doesnt require a password, which lets anyon
 Well, the databse only stores messages and announcements, so the attacker can only manipulate things surrounding this. 
 
 ### Limits to what we can sensibly protect against? 
-Well, yes. We can of course only protect against attacks we already recognize and know about. We always have to keep improving security as we develop our application further. More security issues might arise!
+Well, yes. We can of course only protect against attacks we already recognize and know about. We always have to keep improving security as we develop our application further. More security issues might arise! You should always look at the top most common security vulnerabilities and implement some protection against them.
 
 
 ### What are the main attack vectors for the application?
@@ -153,5 +151,5 @@ For better explanation, look above at techinal details and design considerations
 ### What is the access control model?
 It doesnt have any good access control model. The authentication in the boilerplate application is extremely broken. 
 
-### How can you know that you security is good enough? (traceability)
+### How can you know that your security is good enough? (traceability)
 You can never be completely safe. I feel like good enough security should prevent the most common vulnerabilities, such as SQL injections, XSS and CSRF in our case. Tracibility is a good feature to add in every system because if an attacker succeeds to attack your application, you can quickly trace the problem and prevent similar future attacks. We can obtain tracebility by logging different activity within our application. 

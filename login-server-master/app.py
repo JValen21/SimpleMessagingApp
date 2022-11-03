@@ -1,13 +1,7 @@
-from curses import flash
-from flask import g
-from datetime import datetime
-from http import HTTPStatus
 import secrets
-from flask import Flask, abort, request, send_from_directory, make_response, render_template, session
-from werkzeug.datastructures import WWWAuthenticate
+from flask import Flask, request, send_from_directory, render_template, session
 import flask
 from forms import *
-from base64 import b64decode
 from apsw import Error
 from threading import local
 import dbManager

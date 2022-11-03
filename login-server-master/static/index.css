@@ -36,6 +36,10 @@
             ;
         }
 
+        dd {
+            margin-inline-start: 0px;
+        }
+
         #controls {
             /* min-height: 20%; */
             font-size: 1.4rem;

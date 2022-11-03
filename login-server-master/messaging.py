@@ -5,8 +5,7 @@ from flask import request
 from app import app
 from apsw import Error
 import dbManager
-from json import dumps, loads
-from markupsafe import escape
+from json import dumps
 timestamp_format = '%Y-%m-%d %H:%M:%S'
 
 
