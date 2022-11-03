@@ -80,12 +80,9 @@ def check_password(username, password):
 
 ################################# Functions for messaging #################################
 
-#Prepared statements to avoid sql injection. 
 def getMessagesInInbox(receiver):
     return conn.execute('SELECT * FROM messages WHERE receiver=?', (receiver,)) 
 
 def sendMessage(sender, message, receiver, timestamp):
     return conn.execute('INSERT INTO messages (sender, message, receiver, timestamp) VALUES (?, ?, ?, ?)', (sender, message, receiver, timestamp))
     
-def getAnnouncement(stmt):
-    return conn.execute(stmt)

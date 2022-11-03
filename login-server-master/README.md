@@ -9,8 +9,8 @@ The login system does not verify passwords, it only checks for an existing usern
 
 The sercet key is also very bad. Its also available in plaintext for the hacker if he gets access to the app.py file. It should not be available and it should be random. 
 
-The send message functionality can be misused by cross site scripting. This can be done by for example sending the message:
-<span onclick=alert(5)> hacked </span> where alert(5) could be changed out with some dangerous malicious code.
+The send message functionality can be misused by cross site scripting. This can be done by for example sending this message:
+`<span onclick=alert(5)> You just won an IPad! </span>`. The hacker could here change "alert(5)" with some dangerous malicious code.
 
 Its vulnerable to sql injections, both in the log in page and the send message page. The server shows us the actual SQL query it uses. This is really bad and can give an attacker the information he needs to succeed with an injection attack.
 
@@ -24,7 +24,7 @@ Users can pretend to be someone else by sending messages as another user. This s
 
 No authorization. Everyone can see everyones messages.
 
-The app is also vulnerable to CSRF attacks, since there is no CSFR token checks. This means that an end-user can be tricked by clicking on a form on another website, redirecting messages to our server. Also, the send() method (in app.py) also supports POST and GET requests, meaning a user can be tricked in clicking a link, which will send a message to this server. This can be done by for example clicking the link:  localhost:5000/send?sender=Bob&message=Hacked  (this is because clicking of links usually are GET requests and not POST requests)
+The app is also vulnerable to CSRF attacks, since there is no CSRF token checks. An end-user could be hacked by clicking on a form on another website, redirecting messages to our server. Also, the send() method in app.py also supports POST and GET requests, meaning a user can be tricked into clicking a link, which will send a message to this server. This is because clicking of links usually are GET requests and not POST requests)
 
 ## Design considerations
 
@@ -64,7 +64,7 @@ Implemeted logout functionality.
 
 I removed the "search" functionality of the boilerplate application, because this did not make very much sense for e message application in my eyes. I don't really use pygmentize, since I don't show the queries, so I removed this too. Same with announcements. 
 
-## Features of the application
+## Application features
 ### Creating users
 From the "/createUser" page you can create users. You have to write a username that is unique and a password with more than 12 characters. 
 

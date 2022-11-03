@@ -12,10 +12,8 @@ timestamp_format = '%Y-%m-%d %H:%M:%S'
 
 @app.get('/showInbox')
 def showInbox():
-    #query = request.args.get('q') or request.form.get('q') or '*'
     receiver = request.args.get('sender')
     result = ""
-    #result = f"Query: {pygmentize(stmt)}\n"
     try:
         c = dbManager.getMessagesInInbox(receiver)
         rows = c.fetchall()
@@ -38,7 +36,6 @@ def send():
             return f'ERROR: {receiver} is not a valid user'
         if not sender or not message or not receiver:
             return f'ERROR: missing sender, message or receiver'
-        #Fixing SQL injection vulnerability:
         dbManager.sendMessage(sender, message, receiver, timestamp)
         return f'Message: "{message}" sent successfully to {receiver}'
     except Error as e:

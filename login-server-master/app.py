@@ -23,7 +23,7 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="lax", #We prevent cookies from being sent from any external requests by setting SESSION_COOKIE_SAMESITE to lax
 )
 # The secret key enables storing encrypted session data in a cookie (make a secure random key for this!)
-app.secret_key = secrets.token_hex(16)
+app.secret_key = secrets.token_hex(64)
 
 
 from security import *
@@ -62,16 +62,11 @@ def index_js():
 def index_css():
     return send_from_directory(app.root_path, 'static/index.css', mimetype='text/css')
 
-################################################################################################
-################################################################################################
-
 @app.route('/')
 @app.route('/index.html')
 @login_required
 def index_html():
     return render_template("index.html", minetype='text/html')
-    #return send_from_directory(app.root_path,
-                        #'index.html', mimetype='text/html')
 
 #Creating a new user in the system:
 #Redirects to the login page if you successfully create a new user, if not, the page reloads.     
@@ -82,9 +77,6 @@ def createUser():
         print(f'Received form: {"invalid" if not form.validate() else "valid"} {form.form_errors} {form.errors}')
         print(request.form)
     if form.validate_on_submit():
-        #username = form.username.data
-        #psw = form.password.data
-        #pswRepeated = form.repeatPassword.data
         username = request.form["username"]
         psw = request.form["psw"]
         pswRepeated = request.form["psw-repeat"]
@@ -99,6 +91,7 @@ def createUser():
             
                 next = flask.request.args.get('next')
                 
+                # is_safe_url checks if the url is safe for redirects.
                 if not is_safe_url(next):
                     return flask.abort(400)
                 return flask.redirect(next or flask.url_for('login'))
@@ -109,7 +102,6 @@ def createUser():
 
 
 ################################## Functions for the login and logout process #################################
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -122,34 +114,33 @@ def login():
         if form.validate_on_submit():
             username = form.username.data
             password = form.password.data
-            session['user'] = username
+            session['username'] = username
             try: 
-                isValid = dbManager.check_password(username, password) # and check_password(u.password, password)
+                isValid = dbManager.check_password(username, password)
             except IndexError as e:
                 return render_template('./login.html', form=form)  
             if(isValid):
                 user = user_loader(username)
+                
                 # automatically sets logged in session cookie
-                session['logged_in'] = True
-                login_user(user, remember=False)
+                login_user(user)
         
                 flask.flash('Logged in successfully.')
                 next = flask.request.args.get('next')
                 
-                # is_safe_url checks if the url is safe for redirects.
                 if not is_safe_url(next):
                     return flask.abort(400)
 
                 return flask.redirect(next or flask.url_for('index_html'))              
     return render_template('./login.html', form=form)
 
-#Logout funciton:
+
 @app.route('/logout')
 @login_required
 def logout():
     print("Gets here")
     logout_user()
-    session.pop('user', None)
+    session.pop('username', None)
     
     next = flask.request.args.get('next')
     if not is_safe_url(next):
