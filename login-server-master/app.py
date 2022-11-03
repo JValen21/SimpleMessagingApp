@@ -56,11 +56,11 @@ def user_loader(user_id):
 
 @app.route('/index.js')
 def index_js():
-    return send_from_directory(app.root_path, 'index.js', mimetype='text/javascript')
+    return send_from_directory(app.root_path, 'static/index.js', mimetype='text/javascript')
 
 @app.route('/index.css')
 def index_css():
-    return send_from_directory(app.root_path, 'index.css', mimetype='text/css')
+    return send_from_directory(app.root_path, 'static/index.css', mimetype='text/css')
 
 ################################################################################################
 ################################################################################################
@@ -156,14 +156,6 @@ def logout():
                     return flask.abort(400)
                            
     return flask.redirect(flask.url_for('login')) 
-
-#Make session end after 20 minutes of inactivity:       
-#@app.before_request
-#def make_session_permanent():
-    #flask.session.permanent = True
-    #app.permanent_session_lifetime = datetime.timedelta(minutes=1)
-   # flask.session.modified = True
-
 
 from messaging import *
 
